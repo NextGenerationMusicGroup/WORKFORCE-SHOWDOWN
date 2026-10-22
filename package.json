@@ -1,0 +1,13 @@
+{
+  "name": "workforce-showdown-online",
+  "version": "0.2.0",
+  "description": "Online workplace fighting game prototype with tournament registration and leaderboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
