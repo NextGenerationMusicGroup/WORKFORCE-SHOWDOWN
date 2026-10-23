@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workforce Showdown — 3D Prototype</title>
+<style>
+:root{color-scheme:dark;--gold:#f3c45b;--panel:#211d29;--line:#51485d}*{box-sizing:border-box}body{margin:0;background:#100e15;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}header{padding:16px 20px;text-align:center;background:linear-gradient(120deg,#211a2a,#38263e);border-bottom:1px solid #6b526e}h1{margin:0;color:var(--gold);letter-spacing:.08em;font-size:clamp(24px,4vw,42px)}header p{margin:7px 0 0;color:#d4c9dc}.wrap{max-width:1200px;margin:auto;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px}.arena{position:relative;min-height:420px;background:#17131c;border:1px solid var(--line);border-radius:14px;overflow:hidden}#stage{display:block;width:100%;height:100%;min-height:420px;touch-action:pan-y}.hud{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:12px;align-items:center;pointer-events:none}.fighterhud{flex:1;background:#100d17dd;border:1px solid #6c5a70;padding:8px;border-radius:9px}.fighterhud strong{display:block;font-size:13px}.bar{height:10px;background:#4a2934;border-radius:8px;overflow:hidden;margin-top:5px}.fill{height:100%;width:100%;background:linear-gradient(90deg,#e83e58,#f6bd5d);transition:width .15s}.centerhud{font-weight:900;color:var(--gold);font-size:20px;text-shadow:0 2px #000}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}.panel h2{font-size:17px;margin:0 0 10px}.panel p,.hint{font-size:13px;color:#c9c1d3;line-height:1.5}.label{display:block;font-size:12px;color:#c9c1d3;margin:12px 0 5px}select,button{font:inherit;width:100%;padding:11px;border-radius:9px;border:1px solid #65556e;background:#302839;color:white;margin-bottom:8px}button{cursor:pointer;background:var(--gold);color:#211925;border:0;font-weight:800}button.secondary{background:#3b3144;color:white;border:1px solid #65556e}.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.controls button{margin:0;padding:12px 4px;touch-action:manipulation}.controls .wide{grid-column:span 3}.status{color:var(--gold);font-weight:700;min-height:22px;font-size:13px;margin:8px 0}.footer{max-width:1200px;margin:0 auto;padding:0 14px 20px;color:#a99db5;font-size:12px}.pill{display:inline-block;border:1px solid #8a6c37;color:var(--gold);padding:4px 8px;border-radius:99px;font-size:11px;margin-bottom:8px}@media(max-width:800px){.wrap{grid-template-columns:1fr}.arena,#stage{min-height:360px}.panel{order:2}}
+</style>
+</head>
+<body>
+<header><h1>WORKFORCE SHOWDOWN</h1><p>3D Combat Lab · Rigged Fighters & Combat Animation</p></header>
+<div class="wrap">
+<section class="arena"><canvas id="stage"></canvas><div class="hud"><div class="fighterhud"><strong id="p1name">THE UNION BRAWLER</strong><div class="bar"><div class="fill" id="hp1"></div></div></div><div class="centerhud" id="timer">99</div><div class="fighterhud" style="text-align:right"><strong id="p2name">THE EXECUTIVE</strong><div class="bar"><div class="fill" id="hp2"></div></div></div></div></section>
+<aside class="panel"><span class="pill">STEP 2 · RIGGED 3D CHARACTER PASS</span><h2>Character animation lab</h2><p>Upgraded, articulated human fighters with detailed workwear/business outfits, facial features, and six combat states: idle, walk, punch, kick, hit, and knockout. This build now attempts to load a skinned, rigged 3D character with authored locomotion/death clips; custom combat poses layer over the rig. If the remote asset is unavailable, the detailed procedural fallback remains playable.</p>
+<label class="label" for="employee">Employee fighter</label><select id="employee"><option>The Union Brawler</option><option>The Shift Leader</option><option>The Hard Worker</option><option>The Closer</option></select>
+<label class="label" for="boss">Boss fighter</label><select id="boss"><option>The Executive</option><option>The Director</option><option>The Chairman</option><option>The Chief</option></select>
+<button id="restart">Restart round</button><div class="status" id="status">Round ready — move in and test a strike.</div>
+<h2>Controls</h2><div class="controls"><button id="left" class="secondary">◀ Move</button><button id="jump" class="secondary">⬆ Jump</button><button id="right" class="secondary">Move ▶</button><button id="punch">J · Punch</button><button id="kick">K · Kick</button><button id="block" class="secondary">L · Block</button><button id="special" class="wide">I · Special move</button></div>
+<p class="hint">Keyboard: A/D or ←/→ move · W/↑ jump · J punch · K kick · hold L to block · I special. Click/tap the buttons for touch controls. Combat states blend procedurally: idle, walk, punch, kick, hit reaction, and knockout. Character meshes are built in-browser; internet is only needed for the Three.js library.</p></aside>
+</div><div class="footer">STEP 2 NOTE: This is a more detailed, articulated procedural human-character pass—not photogrammetry or a final scanned model. Fighters have layered clothing, facial details, hair, hands, boots/shoes, and state-based animation. Three.js loads from a public CDN; internet access is required. Online multiplayer/server files remain unchanged.</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js';
+import { clone as cloneSkeleton } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/utils/SkeletonUtils.js';
+const canvas=document.querySelector('#stage'), statusEl=document.querySelector('#status');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene();scene.background=new THREE.Color('#17131d');scene.fog=new THREE.Fog('#17131d',16,34);
+const camera=new THREE.PerspectiveCamera(34,1,.1,100);camera.position.set(0,5.4,14.8);camera.lookAt(0,2.1,0);
+scene.add(new THREE.HemisphereLight(0xcbdcff,0x3b2430,2.0));const key=new THREE.DirectionalLight(0xffe1b0,3.0);key.position.set(-4,9,7);key.castShadow=true;key.shadow.mapSize.set(1024,1024);scene.add(key);
+function mat(color,roughness=.65,metalness=.05){return new THREE.MeshStandardMaterial({color,roughness,metalness})}
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(28,18),mat('#29232f'));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+const platform=new THREE.Mesh(new THREE.BoxGeometry(13,.28,7),mat('#403644',.48,.25));platform.position.y=.12;platform.receiveShadow=true;scene.add(platform);
+const trim=new THREE.Mesh(new THREE.BoxGeometry(13.2,.08,7.2),mat('#d2a84c',.35,.5));trim.position.y=.22;scene.add(trim);
+// Boardroom wall, illuminated panels and city-window silhouettes
+const back=new THREE.Mesh(new THREE.BoxGeometry(15,6,.35),mat('#24202d'));back.position.set(0,3,-4.2);scene.add(back);
+for(let i=0;i<7;i++){const win=new THREE.Mesh(new THREE.BoxGeometry(1.55,3.5,.08),mat(i%2?'#273c55':'#31435a',.3,.2));win.position.set(-5.4+i*1.8,3.1,-3.98);scene.add(win);for(let j=0;j<3;j++){const glow=new THREE.Mesh(new THREE.BoxGeometry(1.2,.035,.04),mat('#7aa6c8',.35,.1));glow.position.set(-5.4+i*1.8,2+j*.75,-3.9);scene.add(glow)}}
+const sign=new THREE.Mesh(new THREE.BoxGeometry(4,.62,.15),mat('#17131d',.3,.2));sign.position.set(0,5.3,-3.9);scene.add(sign);
+function makeFighter({skin='#8c5c42',shirt='#2459a6',pants='#1a202c',accent='#d3ad53',tie=false}) {
+  const root=new THREE.Group(); scene.add(root);
+  const skinM=mat(skin,.82), shirtM=mat(shirt,.72), pantsM=mat(pants,.82), shoeM=mat('#111116',.42), accentM=mat(accent,.42,.25);
+  const darkM=mat('#211a19',.9), whiteM=mat('#eee7dc',.5), seamM=mat('#b9b1a5',.7), parts={};
+  const add=(name,geo,material,pos,parent=root)=>{const m=new THREE.Mesh(geo,material);m.position.set(...pos);m.castShadow=true;m.receiveShadow=true;parent.add(m);parts[name]=m;return m};
+  const sphere=(name,scale,material,pos,parent=root)=>{const m=add(name,new THREE.SphereGeometry(1,20,14),material,pos,parent);m.scale.set(...scale);return m};
+  const capsule=(name,r,len,material,pos,parent=root)=>add(name,new THREE.CapsuleGeometry(r,len,5,10),material,pos,parent);
+  // Pelvis and tailored torso layers
+  const pelvis=add('pelvis',new THREE.BoxGeometry(.58,.34,.34),pantsM,[0,1.05,0]);pelvis.rotation.x=-.02;
+  const torso=new THREE.Group();torso.position.set(0,1.24,0);root.add(torso);parts.torso=torso;
+  const jacket=add('jacket',new THREE.CapsuleGeometry(.39,.66,7,14),shirtM,[0,.38,0],torso);jacket.scale.set(1.08,1.03,.78);
+  const chest=add('chest',new THREE.BoxGeometry(.44,.62,.045),mat(tie?'#e6dfd5':shirt,.7),[0,.42,.31],torso);
+  if(tie){add('tie',new THREE.ConeGeometry(.075,.42,4),accentM,[0,.36,.35],torso);add('tie-knot',new THREE.BoxGeometry(.11,.09,.06),accentM,[0,.61,.35],torso);for(const s of [-1,1]){const lap=add('lapel'+s,new THREE.BoxGeometry(.12,.42,.045),whiteM,[s*.15,.51,.34],torso);lap.rotation.z=s*-.28;}}
+  else {for(const s of [-1,1]){const seam=add('shirt-seam'+s,new THREE.BoxGeometry(.018,.48,.018),seamM,[s*.17,.38,.33],torso);}}
+  add('collar',new THREE.CylinderGeometry(.12,.16,.12,12),skinM,[0,.83,0],torso);
+  // Neck, head, jaw, ears, eyes, brows, nose, mouth and hairstyle
+  const headGroup=new THREE.Group();headGroup.position.set(0,2.27,0);root.add(headGroup);parts.headGroup=headGroup;
+  capsule('neck',.105,.13,skinM,[0,-.05,0],headGroup);
+  sphere('head', [.255,.32,.235],skinM,[0,.23,.025],headGroup);
+  sphere('jaw',[.19,.13,.19],skinM,[0,.075,.09],headGroup);
+  sphere('earL',[.055,.085,.045],skinM,[-.255,.22,.02],headGroup);sphere('earR',[.055,.085,.045],skinM,[.255,.22,.02],headGroup);
+  const hairMat=mat(tie?'#2a211c':'#211a17',.95);
+  sphere('haircap',[.263,.13,.245],hairMat,[0,.465,-.005],headGroup);
+  // Hairline and side hair give the silhouette more depth
+  sphere('hairline',[.235,.07,.07],hairMat,[0,.405,.185],headGroup);
+  sphere('sideburnL',[.04,.105,.06],hairMat,[-.22,.31,.07],headGroup);sphere('sideburnR',[.04,.105,.06],hairMat,[.22,.31,.07],headGroup);
+  const eyeWhite=mat('#f4e9db',.35), iris=mat('#392a24',.35), brow=mat('#382720',.9);
+  for(const s of [-1,1]){
+    sphere('eye-white'+s,[.061,.039,.025],eyeWhite,[s*.09,.265,.228],headGroup);
+    sphere('iris'+s,[.025,.028,.012],iris,[s*.09,.263,.25],headGroup);
+    const b=add('brow'+s,new THREE.BoxGeometry(.09,.022,.025),brow,[s*.09,.326,.226],headGroup);b.rotation.z=s*-.08;
+  }
+  const nose=add('nose',new THREE.ConeGeometry(.043,.105,7),skinM,[0,.205,.255],headGroup);nose.rotation.x=-.12;
+  add('mouth',new THREE.BoxGeometry(.09,.018,.016),darkM,[0,.105,.239],headGroup);
+  // Legs are separate articulated chains with knees, shin fabric, and substantial footwear
+  for(const s of [-1,1]){
+    const leg=new THREE.Group();leg.position.set(s*.205,1.0,0);root.add(leg);parts['leg'+s]=leg;
+    capsule('thigh'+s,.145,.34,pantsM,[0,-.23,0],leg);
+    const knee=sphere('knee'+s,[.145,.14,.15],pantsM,[0,-.45,.012],leg);
+    capsule('shin'+s,.105,.34,pantsM,[0,-.65,0],leg);
+    const stripe=add('trouser-seam'+s,new THREE.BoxGeometry(.012,.42,.012),seamM,[s*-.035,-.55,.102],leg);
+    const boot=add('boot'+s,new THREE.BoxGeometry(.27,.16,.43),shoeM,[0,-.88,.095],leg);boot.rotation.x=-.03;
+    add('sole'+s,new THREE.BoxGeometry(.28,.035,.44),mat('#050507',.35),[0,-.965,.11],leg);
+    // Arms pivot at shoulders; forearms and fists are children for readable strike silhouettes
+    const arm=new THREE.Group();arm.position.set(s*.43,1.95,0);root.add(arm);parts['arm'+s]=arm;
+    const shoulder=sphere('shoulder'+s,[.18,.18,.17],shirtM,[0,-.035,0],arm);
+    capsule('upper-arm'+s,.115,.31,shirtM,[s*-.015,-.23,.015],arm);
+    const elbow=sphere('elbow'+s,[.112,.11,.11],shirtM,[s*-.025,-.43,.035],arm);
+    const forearm=capsule('forearm'+s,.09,.28,skinM,[s*-.035,-.61,.065],arm);forearm.rotation.z=s*.06;
+    const cuff=add('cuff'+s,new THREE.CylinderGeometry(.093,.093,.075,12),shirtM,[s*-.035,-.73,.065],arm);cuff.rotation.z=Math.PI/2;
+    const hand=new THREE.Group();hand.position.set(s*-.035,-.79,.09);arm.add(hand);parts['hand'+s]=hand;
+    sphere('palm'+s,[.095,.105,.07],skinM,[0,0,0],hand);
+    for(let f=0;f<4;f++) capsule('finger'+s+'-'+f,.018,.055,skinM,[(f-1.5)*.035,-.075,.025],hand);
+    const thumb=capsule('thumb'+s,.022,.045,skinM,[s*.075,-.005,.06],hand);thumb.rotation.z=s*.6;
+    // Shirt cuff buttons and subtle shoulder seam
+    sphere('cuff-button'+s,[.018,.018,.012],accentM,[s*-.035,-.73,.151],arm);
+  }
+  // Waist belt and buckle
+  add('belt',new THREE.BoxGeometry(.59,.075,.38),darkM,[0,1.02,0]);
+  add('buckle',new THREE.BoxGeometry(.105,.09,.035),accentM,[0,1.02,.205]);
+  // Bosses get a lapel pin; employees get a visible badge
+  if(tie){sphere('lapel-pin',[.035,.035,.02],accentM,[-.23,1.72,.31]);}
+  else {const badge=add('work-badge',new THREE.BoxGeometry(.12,.15,.025),whiteM,[.22,1.72,.31]);add('badge-mark',new THREE.BoxGeometry(.07,.025,.012),accentM,[.22,1.74,.33]);}
+  return {root,parts,health:100,blocking:false,attack:0,attackKind:'punch',stun:0,jump:0,baseY:0,state:'idle',stateTime:0,knockout:false,walkPhase:0,hitFlash:0};
+}
+const roster={
+'The Union Brawler':{skin:'#75452f',shirt:'#2861a9',pants:'#202936',accent:'#e0b957'},'The Shift Leader':{skin:'#8b563b',shirt:'#315caa',pants:'#252b37',accent:'#e0b957'},'The Hard Worker':{skin:'#dfb99b',shirt:'#3b795e',pants:'#2a3038',accent:'#d4b071'},'The Closer':{skin:'#edc7ad',shirt:'#4a6d9e',pants:'#292d3b',accent:'#d4b071'},'The Executive':{skin:'#8c573b',shirt:'#25232c',pants:'#181820',accent:'#d9b14e',tie:true},'The Director':{skin:'#9b654a',shirt:'#332b43',pants:'#201c2a',accent:'#d9b14e',tie:true},'The Chairman':{skin:'#d7b39a',shirt:'#3c414b',pants:'#222630',accent:'#d9b14e',tie:true},'The Chief':{skin:'#efcbb4',shirt:'#393443',pants:'#211f28',accent:'#d9b14e',tie:true}};
+let p1,p2,keys={},remaining=99,last=performance.now(),acc=0,ended=false,aiClock=0;const clockEl=document.querySelector('#timer');
+// Real rigged character asset (skinned mesh + authored idle/walk/run/death clips).
+// The page keeps a procedural fallback if the remote model cannot be fetched.
+const REAL_CHARACTER_URL='https://www.shanebrumback.com/models/soldier_rigged.glb';
+let cachedCharacterGLTF=null, characterLoadPromise=null;
+function loadCharacterAsset(){
+  if(cachedCharacterGLTF) return Promise.resolve(cachedCharacterGLTF);
+  if(characterLoadPromise) return characterLoadPromise;
+  characterLoadPromise=new Promise((resolve,reject)=>new GLTFLoader().load(REAL_CHARACTER_URL,g=>{cachedCharacterGLTF=g;resolve(g)},undefined,e=>{console.warn('Rigged character model could not load; keeping procedural fighter.',e);reject(e)}));
+  return characterLoadPromise;
+}
+function applyRiggedCharacter(f, variant){
+  loadCharacterAsset().then(gltf=>{
+    if(!f.root.parent) return;
+    const model=cloneSkeleton(gltf.scene);
+    model.traverse(o=>{
+      if(!o.isMesh) return;
+      o.castShadow=true; o.receiveShadow=true; o.frustumCulled=false;
+      // Remove visible weapon meshes when the source asset exposes weapon names.
+      if(/rifle|weapon|gun|magazine/i.test(o.name)) o.visible=false;
+      if(o.material){
+        const materials=Array.isArray(o.material)?o.material:[o.material];
+        o.material=materials.map(m=>{const c=m.clone(); if(!/skin|face|eye|teeth|hair|head/i.test(o.name)){c.color.multiply(new THREE.Color(variant.tint));} return c;});
+        if(!Array.isArray(o.material)) o.material=o.material[0];
+      }
+    });
+    const box=new THREE.Box3().setFromObject(model), size=box.getSize(new THREE.Vector3());
+    const scale=2.52/Math.max(size.y,.001); model.scale.setScalar(scale);
+    model.position.y=-box.min.y*scale;
+    // Hide the handcrafted placeholder pieces, preserving the fighter root and combat controller.
+    for(const child of [...f.root.children]) child.visible=false;
+    f.root.add(model); f.model=model; f.mixer=new THREE.AnimationMixer(model); f.rigActions={};
+    const clips=gltf.animations||[];
+    const findClip=(patterns)=>clips.find(c=>patterns.some(p=>p.test(c.name)));
+    const map={idle:findClip([/idle/i,/stand/i]),walk:findClip([/walk/i,/run/i]),punch:findClip([/punch/i,/attack/i,/fire/i]),kick:findClip([/kick/i,/reload/i,/attack/i]),hit:findClip([/hit/i,/hurt/i]),knockout:findClip([/death/i,/die/i,/dead/i]),run:findClip([/run/i,/walk/i])};
+    for(const [name,clip] of Object.entries(map)) if(clip){const action=f.mixer.clipAction(clip);action.enabled=true;f.rigActions[name]=action;}
+    f.rigState=''; playRigState(f,'idle');
+  }).catch(()=>{});
+}
+function playRigState(f,state){
+  if(!f.mixer||!f.rigActions||f.rigState===state) return;
+  const action=f.rigActions[state]||f.rigActions.idle; if(!action)return;
+  const previous=f.rigActions[f.rigState]; action.reset(); action.enabled=true; action.setLoop(state==='knockout'?THREE.LoopOnce:THREE.LoopRepeat,state==='knockout'?1:Infinity); action.clampWhenFinished=state==='knockout'; action.play();
+  if(previous&&previous!==action) previous.crossFadeTo(action,.16,false);
+  f.rigState=state;
+}
+function animateRiggedCombatPose(f){
+  if(!f.model||!f.model.visible) return;
+  // Overlay clear combat silhouettes on the skinned rig while authored locomotion is paused.
+  const bones={}; f.model.traverse(o=>{if(o.isBone)bones[o.name.toLowerCase()]=o;});
+  const pick=(...parts)=>Object.values(bones).find(b=>parts.every(p=>b.name.toLowerCase().includes(p)));
+  const rightArm=pick('rightarm')||pick('right_arm'), rightFore=pick('rightforearm')||pick('rightforearm')||pick('right_forearm'), leftArm=pick('leftarm')||pick('left_arm');
+  const rightUpLeg=pick('rightupleg')||pick('rightthigh')||pick('right_up_leg');
+  if(f.state==='punch'&&rightArm){rightArm.rotation.x-=1.05; rightArm.rotation.z-=.22;if(rightFore)rightFore.rotation.x-=.55;if(leftArm)leftArm.rotation.x-=.35;}
+  if(f.state==='kick'&&rightUpLeg){rightUpLeg.rotation.x-=1.1;if(rightArm)rightArm.rotation.x-=.5;if(leftArm)leftArm.rotation.x-=.5;}
+  if(f.state==='hit'){if(rightArm)rightArm.rotation.z+=.45;if(leftArm)leftArm.rotation.z-=.45;}
+}
+
+function createFighters(){if(p1)scene.remove(p1.root);if(p2)scene.remove(p2.root);p1=makeFighter(roster[document.querySelector('#employee').value]);p2=makeFighter(roster[document.querySelector('#boss').value]);applyRiggedCharacter(p1,{tint:'#8bbcff'});applyRiggedCharacter(p2,{tint:'#d5b06c'});p1.root.position.set(-3.1,0,.15);p2.root.position.set(3.1,0,-.1);p2.root.rotation.y=Math.PI;document.querySelector('#p1name').textContent=document.querySelector('#employee').value.toUpperCase();document.querySelector('#p2name').textContent=document.querySelector('#boss').value.toUpperCase();remaining=99;ended=false;clockEl.textContent='99';statusEl.textContent='Round ready — move in and test a strike.';updateHud()}
+function updateHud(){document.querySelector('#hp1').style.width=p1.health+'%';document.querySelector('#hp2').style.width=p2.health+'%';document.querySelector('#hp1').style.background=p1.health<30?'#e53c48':'linear-gradient(90deg,#e83e58,#f6bd5d)';document.querySelector('#hp2').style.background=p2.health<30?'#e53c48':'linear-gradient(90deg,#e83e58,#f6bd5d)'}
+function setState(f,state){if(f.state===state)return;f.state=state;f.stateTime=0;playRigState(f,state);}
+function attack(f,kind){if(ended||f.attack>0||f.stun>0||f.knockout)return;f.attack=kind==='special'?1.05:kind==='kick'?.62:.42;f.attackResolved=false;f.attackKind=kind;setState(f,kind==='kick'?'kick':'punch');const isPlayer=f===p1;statusEl.textContent=isPlayer?({punch:'Punch committed!',kick:'Heavy kick!',special:'Special move unleashed!'})[kind]:'The Executive is attacking!';}
+function hitCheck(attacker,target){if(attacker.attack<=0||attacker.attackResolved)return;const reach=attacker.attackKind==='special'?2.15:attacker.attackKind==='kick'?1.65:1.3;if(Math.abs(attacker.root.position.x-target.root.position.x)<reach&&Math.abs(attacker.root.position.z-target.root.position.z)<1.2){const dmg=attacker.attackKind==='special'?19:attacker.attackKind==='kick'?13:8;target.health=Math.max(0,target.health-Math.ceil(dmg*(target.blocking?.22:1)));target.stun=.42;target.hitFlash=.18;target.attack=0;target.attackResolved=false;setState(target,target.health<=0?'knockout':'hit');target.knockout=target.health<=0;target.root.position.x+=Math.sign(target.root.position.x-attacker.root.position.x)*.2;attacker.attackResolved=true;updateHud();if(target.health<=0){ended=true;statusEl.textContent=(attacker===p1?document.querySelector('#employee').value:document.querySelector('#boss').value)+' wins the round!';} }}
+function stepFighter(f,dt,isPlayer){
+  f.stateTime+=dt;if(f.mixer)f.mixer.update(dt);f.attack=Math.max(0,f.attack-dt);f.stun=Math.max(0,f.stun-dt);f.jump=Math.max(0,f.jump-dt);f.hitFlash=Math.max(0,f.hitFlash-dt);
+  f.root.position.y=f.jump>0?Math.sin((f.jump/.55)*Math.PI)*.85:0;
+  const moving=isPlayer?(keys.left?-1:0)+(keys.right?1:0):0;
+  if(!ended&&f.stun<=0&&!f.knockout){
+    f.root.position.x+=moving*dt*4.1;
+    if(isPlayer){f.blocking=!!keys.block;if(keys.jump&&f.jump<=0)f.jump=.55;}
+  }
+  f.root.position.x=THREE.MathUtils.clamp(f.root.position.x,-5.5,5.5);
+  const opponent=f===p1?p2:p1;
+  f.root.rotation.y=f.root.position.x<opponent.root.position.x?0:Math.PI;
+  if(f.knockout){setState(f,'knockout');f.root.rotation.z+=(f===p1?1:-1)*dt*2.8;f.root.rotation.x=Math.min(.3,f.root.rotation.x+dt*.35);f.root.position.y=Math.max(-.7,f.root.position.y-dt*1.2);}
+  else {
+    if(f.state==='hit'&&f.stateTime>.42){setState(f,'idle');}
+    else if((f.state==='punch'||f.state==='kick')&&f.attack<=0){f.attackResolved=false;setState(f,'idle');}
+    else if(f.stun<=0&&f.attack<=0)setState(f,moving!==0?'walk':'idle');
+  }
+  const t=f.stateTime, phase=performance.now()*.006;animateRiggedCombatPose(f);
+  const torso=f.parts.torso, head=f.parts.headGroup;
+  
+  // Reset the neutral pose first, then layer state-specific animation on top.
+  for(const s of [-1,1]){
+    const arm=f.parts['arm'+s], leg=f.parts['leg'+s], hand=f.parts['hand'+s];
+    arm.rotation.set(0,0,s===-1?-.03:.03);leg.rotation.set(0,0,0);hand.rotation.set(0,0,0);
+    if(f.state==='idle'){
+      arm.rotation.x=Math.sin(phase+ s)*.025;arm.rotation.z+=s*-.10;
+      leg.rotation.x=Math.sin(phase*.5+s)*.012;
+    } else if(f.state==='walk'){
+      const swing=Math.sin(phase*2.2)*.5;
+      leg.rotation.x=s*swing;arm.rotation.x=-s*swing*.55;torso.rotation.z=Math.sin(phase*1.1)*.025;
+      head.rotation.z=Math.sin(phase*1.1)*.018;
+    } else if(f.state==='punch'){
+      const u=Math.min(1,t/.32), strike=Math.sin(Math.min(1,u)*Math.PI);
+      const activeSide=1, active=f.parts['arm'+activeSide];
+      active.rotation.x=-1.45*strike;active.rotation.z=.18*strike;
+      f.parts['arm-1'].rotation.x=-.65;
+      torso.rotation.y=.25*strike;torso.rotation.z=-.12*strike;
+      if(f.attackKind==='special'){f.parts.arm1.rotation.x=-1.8*strike;f.parts.arm1.rotation.z=.2;}
+    } else if(f.state==='kick'){
+      const u=Math.min(1,t/.5), strike=Math.sin(u*Math.PI);
+      f.parts.leg1.rotation.x=-1.65*strike;f.parts.arm1.rotation.x=-.85;f.parts['arm-1'].rotation.x=-.75;
+      torso.rotation.x=-.1*strike;torso.rotation.z=-.08*strike;
+    } else if(f.state==='hit'){
+      arm.rotation.x=s*.45;arm.rotation.z=s*.25;leg.rotation.x=-.12;
+      torso.rotation.z=s*.13;head.rotation.z=-s*.08;
+    } else if(f.state==='knockout'){
+      arm.rotation.x=s*.9;arm.rotation.z=s*.6;leg.rotation.x=-s*.18;
+    }
+    if(f.blocking&&!f.knockout){arm.rotation.x=-.95;arm.rotation.z=s*.2;}
+  }
+  if(f.state==='idle'||f.state==='walk'){torso.rotation.x=0;torso.rotation.y=0;torso.rotation.z=0;head.rotation.z=0;}
+  if(f.state==='hit'&&f.hitFlash>0){f.parts.torso.scale.setScalar(1+f.hitFlash*.12);}
+  else f.parts.torso.scale.setScalar(1);
+}
+function ai(dt){if(ended)return;aiClock+=dt;const dx=p1.root.position.x-p2.root.position.x;if(Math.abs(dx)>1.25)p2.root.position.x+=Math.sign(dx)*dt*(aiClock%3<2?1.25:.45);p2.blocking=aiClock%4>2.8;if(Math.abs(dx)<1.7&&aiClock%1.65<dt)attack(p2,Math.random()>.7?'kick':'punch');if(p2.attack>0)hitCheck(p2,p1)}
+function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(canvas);resize();createFighters();
+function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.04);last=now;if(!ended){remaining=Math.max(0,remaining-dt);clockEl.textContent=String(Math.ceil(remaining));if(remaining<=0){ended=true;statusEl.textContent=p1.health===p2.health?'Time! Draw round.':(p1.health>p2.health?document.querySelector('#employee').value:document.querySelector('#boss').value)+' wins on health!';}stepFighter(p1,dt,true);stepFighter(p2,dt,false);ai(dt);if(p1.attack>0)hitCheck(p1,p2);}else{stepFighter(p1,dt,true);stepFighter(p2,dt,false)}
+const mid=(p1.root.position.x+p2.root.position.x)/2;camera.position.x+=(mid*.18-camera.position.x)*dt*1.6;camera.lookAt(mid*.18,2.05,0);renderer.render(scene,camera)}requestAnimationFrame(animate);
+const setKey=(name,on)=>keys[name]=on;for(const [id,name] of [['left','left'],['right','right'],['jump','jump'],['block','block']]){const el=document.getElementById(id);el.addEventListener('pointerdown',e=>{e.preventDefault();setKey(name,true)});for(const ev of ['pointerup','pointercancel','pointerleave'])el.addEventListener(ev,()=>setKey(name,false));}
+for(const [id,kind] of [['punch','punch'],['kick','kick'],['special','special']])document.getElementById(id).addEventListener('pointerdown',e=>{e.preventDefault();attack(p1,kind)});
+window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['arrowleft','arrowright','arrowup',' '].includes(k))e.preventDefault();if(k==='a'||k==='arrowleft')keys.left=true;if(k==='d'||k==='arrowright')keys.right=true;if(k==='w'||k==='arrowup')keys.jump=true;if(k==='l')keys.block=true;if(k==='j')attack(p1,'punch');if(k==='k')attack(p1,'kick');if(k==='i')attack(p1,'special')});window.addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k==='a'||k==='arrowleft')keys.left=false;if(k==='d'||k==='arrowright')keys.right=false;if(k==='w'||k==='arrowup')keys.jump=false;if(k==='l')keys.block=false});document.querySelector('#restart').addEventListener('click',createFighters);document.querySelector('#employee').addEventListener('change',createFighters);document.querySelector('#boss').addEventListener('change',createFighters);
+</script>
+</body></html>
