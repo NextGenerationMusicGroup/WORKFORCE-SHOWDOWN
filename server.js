@@ -49,14 +49,26 @@ app.post("/api/tournaments", (req, res) => {
 const rooms = new Map();
 const W = 900, FLOOR = 370;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-function makeFighter(id, slot, role, name) {
-  return { id, slot, role, name: safeName(name || (role === "boss" ? "Boss Fighter" : "Employee Fighter")),
+const CHARACTERS = {
+  executive: { name: "The Executive", role: "boss", skin: "#8d5a3b", hair: "#171319", outfit: "#15141a", accent: "#d5b15b", build: "heavy" },
+  director: { name: "The Director", role: "boss", skin: "#a96f50", hair: "#21151a", outfit: "#24202a", accent: "#d5b15b", build: "agile" },
+  chairman: { name: "The Chairman", role: "boss", skin: "#edc19e", hair: "#d7d0c6", outfit: "#343642", accent: "#c4a25b", build: "heavy" },
+  chief: { name: "The Chief", role: "boss", skin: "#f0c6a7", hair: "#8c6046", outfit: "#18283b", accent: "#c4a25b", build: "agile" },
+  union_brawler: { name: "The Union Brawler", role: "employee", skin: "#75452f", hair: "#171319", outfit: "#2d5272", accent: "#e3bd55", build: "heavy" },
+  shift_leader: { name: "The Shift Leader", role: "employee", skin: "#9b6548", hair: "#21151a", outfit: "#305e55", accent: "#e3bd55", build: "agile" },
+  hard_worker: { name: "The Hard Worker", role: "employee", skin: "#f0c6a7", hair: "#8a6044", outfit: "#76503b", accent: "#e3bd55", build: "heavy" },
+  closer: { name: "The Closer", role: "employee", skin: "#edc19e", hair: "#6d4431", outfit: "#47505c", accent: "#e3bd55", build: "agile" }
+};
+function makeFighter(id, slot, role, name, characterId) {
+  const selected = CHARACTERS[characterId] || null;
+  if (selected && role !== "fighter") role = selected.role;
+  return { id, slot, role, characterId: selected ? characterId : "", character: selected, name: safeName(name || (selected ? selected.name : (role === "boss" ? "Boss Fighter" : "Employee Fighter"))),
     x: slot === 1 ? 250 : 650, y: FLOOR, hp: 100, facing: slot === 1 ? 1 : -1,
     attacking: 0, blocking: false, cooldown: 0, wins: 0, input: {}, scored: false };
 }
 function stateOf(room) {
   return { code: room.code, mode: room.mode, players: [...room.players.values()].map(p => ({
-    id:p.id, slot:p.slot, role:p.role, name:p.name, x:p.x, y:p.y, hp:p.hp, facing:p.facing,
+    id:p.id, slot:p.slot, role:p.role, characterId:p.characterId, character:p.character, name:p.name, x:p.x, y:p.y, hp:p.hp, facing:p.facing,
     attacking:p.attacking, blocking:p.blocking, wins:p.wins
   })), started: room.players.size === 2, roundOver: !!room.roundOver, winner: room.winner || null };
 }
@@ -74,20 +86,20 @@ function recordResult(room, winner, loser) {
   io.emit("leaderboardUpdated");
 }
 io.on("connection", socket => {
-  socket.on("createRoom", ({role, mode, name}={}) => {
+  socket.on("createRoom", ({role, mode, name, characterId}={}) => {
     let code; do { code = Math.random().toString(36).slice(2,7).toUpperCase(); } while (rooms.has(code));
     const m = mode === "freeforall" ? "freeforall" : "employees-vs-bosses";
     const r = { code, mode:m, players:new Map(), roundOver:false, winner:null, resultRecorded:false };
     const normalizedRole = m === "freeforall" ? "fighter" : (role === "boss" ? "boss" : "employee");
-    r.players.set(socket.id, makeFighter(socket.id,1,normalizedRole,name));
+    r.players.set(socket.id, makeFighter(socket.id,1,normalizedRole,name,characterId));
     rooms.set(code,r); socket.join(code); socket.emit("joined",{code,slot:1,role:normalizedRole,mode:m}); emitRoom(r);
   });
-  socket.on("joinRoom", ({code,role,name}={}) => {
+  socket.on("joinRoom", ({code,role,name,characterId}={}) => {
     code=String(code||"").trim().toUpperCase(); const r=rooms.get(code);
     if(!r) return socket.emit("notice","Room not found. Check the code.");
     if(r.players.size>=2) return socket.emit("notice","This room already has two fighters.");
     const normalizedRole = r.mode === "freeforall" ? "fighter" : (role === "boss" ? "boss" : "employee");
-    r.players.set(socket.id,makeFighter(socket.id,2,normalizedRole,name)); socket.join(code);
+    r.players.set(socket.id,makeFighter(socket.id,2,normalizedRole,name,characterId)); socket.join(code);
     socket.emit("joined",{code,slot:2,role:normalizedRole,mode:r.mode});
     io.to(code).emit("notice","Both fighters connected. FIGHT!"); emitRoom(r);
   });
